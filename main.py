@@ -1,10 +1,12 @@
 from docx import Document
 import os 
+from prettytable import PrettyTable
 #for needed imports and testing check readme.txt
 
 
 
-## hadi function that count how many words in a file , also it depends on a language selection ## 
+""" hadi function that count how many words in a file , also it depends on a language selection """
+
 def count_words(file_path, language='english'):
     try:
         if file_path.endswith('.txt'):
@@ -31,7 +33,8 @@ def count_words(file_path, language='english'):
 
 
   
-## hadi function removes stopwords (depending on selected language) ##
+""" hadi function removes stopwords (depending on selected language) """
+
 def remove_stopwords(text, language='english'):
     if language == 'arabic':
         stopwords = set(['في', 'على', 'من', 'إلى', 'هو', 'أن', 'ب', 'و', 'يكون', 'فيه', 'كان', 'هذا', 'هذه', 'ذلك', 'هناك', 'الذي', 'هذه', 'هؤلاء', 'ذلكم', 'تلك', 'هذين', 'هذان', 'هاتان', 'هاتين', 'هؤلاء', 'هذه'
@@ -43,9 +46,37 @@ def remove_stopwords(text, language='english'):
     return cleaned_text
 
 
+""" hadi function dir table that contains frequency and percentage of appearance of words in the cleared text and order 
+ them from top to bot """
+
+def show_word_frequency_table(cleaned_text):
+    words = cleaned_text.split()
+    word_count = len(words)
+    word_frequency = {}
+    
+    # Count word frequency
+    for word in words:
+        word_frequency[word] = word_frequency.get(word, 0) + 1
+    
+    # Calculate percentage of appearance
+    word_percentage = {word: (count / word_count) * 100 for word, count in word_frequency.items()}
+    
+    # Create and populate the table
+    table = PrettyTable(['Word', 'Frequency', 'Percentage'])
+    sorted_word_frequency = sorted(word_frequency.items(), key=lambda x: x[1], reverse=True)
+    for word, frequency in sorted_word_frequency:
+        percentage = word_percentage[word]
+        table.add_row([word, frequency, f'{percentage:.2f}%'])
+    
+    # Print the table
+    print(table)
 
 
-## main program that rn now : asks for path and language , counts words , saves a edited txt without stopwords in same folder , 
+
+
+""" main program that rn now : asks for path and language , counts words , saves a edited txt without stopwords in same folder
+  , shows a frequency and percentage in a table  """
+
 def main():
     file_path = input("Enter the path to the text file or docx file: ")
     language = input("Select language (arabic/english): ")
@@ -61,6 +92,8 @@ def main():
         print(f"Cleaned text saved to {new_file_path}.")
     else:
         print(word_count)
+
+    show_word_frequency_table(cleaned_text)
 
 if __name__ == "__main__":
     main()
