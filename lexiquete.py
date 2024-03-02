@@ -1,9 +1,12 @@
 import os 
+import nltk
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QMenu, QAction, QInputDialog
 from PyQt5.QtGui import QPixmap, QFont, QFontDatabase, QPalette, QBrush
 from PyQt5.QtCore import Qt
 from docx import Document
+from nltk.stem import WordNetLemmatizer
+nltk.download('wordnet')
 
 
 """ Function that counts how many words are in a file """
@@ -54,20 +57,23 @@ def get_word_frequency_table_data(cleaned_text):
     return table_data
 
 
+
+
 class ResultWindow(QWidget):
     def __init__(self, word_count, cleaned_text, table_data):
         super().__init__()
         self.setWindowTitle("LexQuete Result")
         self.setGeometry(200, 200, 600, 400)
         self.setStyleSheet("background-color: #186ed3")
+        self.original_table_data = table_data  # Store original table data
+        self.current_table_data = table_data.copy() # Store current table data
 
-        QFontDatabase.addApplicationFont("/Users/didou/Developer/Projects/LexiQuete/fonts/noodle.ttf")
 
         layout = QVBoxLayout()
 
         # Display word count
         word_count_label = QLabel(f"Word Count: {word_count}")
-        word_count_label.setFont(QFont("BigNoodleTitling", 20)) 
+        word_count_label.setFont(QFont("BigNoodleTitling", 20))
         layout.addWidget(word_count_label)
 
         # Show word frequency table
@@ -75,24 +81,94 @@ class ResultWindow(QWidget):
         table_label.setFont(QFont("BigNoodleTitling", 20))
         layout.addWidget(table_label)
 
-       # Create a QTableWidget
-        table_widget = QTableWidget()
-        table_widget.setColumnCount(3)  # Three columns for Word, Frequency, Percentage
-        table_widget.setHorizontalHeaderLabels(["Word", "Frequency", "Percentage"])
+        # Create a QTableWidget
+        self.table_widget = QTableWidget()
+        self.table_widget.setColumnCount(3)  # Three columns for Word, Frequency, Percentage
+        self.table_widget.setHorizontalHeaderLabels(["Word", "Frequency", "Percentage"])
 
         # Populate the table with data
-        table_widget.setRowCount(len(table_data))
-        for i, row_data in enumerate(table_data):
-            for j, item_data in enumerate(row_data):
-                table_widget.setItem(i, j, QTableWidgetItem(str(item_data)))
+        self.populate_table(table_data)
 
         # Adjust column widths to fit content
-        table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         # Add the widget to the layout
-        layout.addWidget(table_widget)
+        layout.addWidget(self.table_widget)
+
+        # Normalize Button
+        self.normalize_button = QPushButton("Normalize")
+        self.normalize_button.clicked.connect(self.normalize_table)
+        layout.addWidget(self.normalize_button)
+
+
+         # Context menu for the table widget
+        self.table_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table_widget.customContextMenuRequested.connect(self.show_context_menu)
+
+        # Save Button
+        self.save_button = QPushButton("Save Table")
+        self.save_button.clicked.connect(self.save_table)
+        layout.addWidget(self.save_button)
 
         self.setLayout(layout)
+         
+
+    def normalize_table(self):
+        lemmatizer = WordNetLemmatizer()
+        self.current_table_data = [[lemmatizer.lemmatize(word.lower()), freq, perc] for word, freq, perc in self.current_table_data]
+        self.populate_table(self.current_table_data)
+
+
+    def show_context_menu(self, pos):
+        row = self.table_widget.rowAt(pos.y())
+        col = self.table_widget.columnAt(pos.x())
+        if row >= 0 and col >= 0:
+            menu = QMenu(self)
+            delete_action = QAction("Delete", self)
+            delete_action.triggered.connect(lambda: self.delete_row(row))
+            modify_action = QAction("Modify", self)
+            modify_action.triggered.connect(lambda: self.modify_cell(row, col))
+            menu.addAction(delete_action)
+            menu.addAction(modify_action)
+            menu.exec_(self.table_widget.mapToGlobal(pos))
+
+    def modify_cell(self, row, col):
+        item = self.table_widget.item(row, col)
+        if item is not None:
+            new_value, ok = QInputDialog.getText(self, "Modify Cell", "Enter new value:")
+            if ok:
+                item.setText(new_value)
+                self.current_table_data[row][col] = new_value
+                self.reorder_table()
+
+    def reorder_table(self):
+        # Sort current table data based on frequency (second column)
+        self.current_table_data.sort(key=lambda x: int(x[1]), reverse=True)
+        self.populate_table(self.current_table_data)
+
+    
+    def populate_table(self, data):
+        self.table_widget.clearContents()
+        self.table_widget.setRowCount(len(data))
+        for i, row_data in enumerate(data):
+            for j, item_data in enumerate(row_data):
+                self.table_widget.setItem(i, j, QTableWidgetItem(str(item_data)))
+
+    def delete_row(self, row):
+        self.current_table_data.pop(row)
+        self.populate_table(self.current_table_data)
+
+    def save_table(self):
+        file_dialog = QFileDialog()
+        file_path, _ = file_dialog.getSaveFileName(self, 'Save Table', '', "CSV Files (*.csv)")
+        if file_path:
+            try:
+                with open(file_path, 'w') as file:
+                    for row_data in self.current_table_data:
+                        file.write(','.join(row_data) + '\n')
+                QMessageBox.information(self, "Save Successful", "Table saved successfully.")
+            except Exception as e:
+                QMessageBox.warning(self, "Save Error", f"An error occurred while saving the table: {str(e)}")
 
 
 class MainWindow(QWidget):
