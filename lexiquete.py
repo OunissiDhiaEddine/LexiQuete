@@ -1,13 +1,104 @@
+import os 
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSizePolicy
-from PyQt5.QtGui import QPixmap , QFont, QFontDatabase
-from PyQt5.QtGui import QPalette, QBrush
-from PyQt5.QtCore import Qt, QRect, QEasingCurve, QPropertyAnimation, QTimer
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView
+from PyQt5.QtGui import QPixmap, QFont, QFontDatabase, QPalette, QBrush
+from PyQt5.QtCore import Qt
+from docx import Document
+
+
+""" Function that counts how many words are in a file """
+def count_words(file_path):
+    try:
+        if file_path.endswith('.txt'):
+            with open(file_path, 'r', encoding='utf-8') as file:
+                text = file.read()
+                word_count = len(text.split())
+                return word_count
+        elif file_path.endswith('.docx'):
+            doc = Document(file_path)
+            word_count = sum(len(paragraph.text.split()) for paragraph in doc.paragraphs)
+            return word_count
+        else:
+            return "Unsupported file format. Please provide a .txt or .docx file."
+    except FileNotFoundError:
+        return "File not found."
+
+""" Function that removes stopwords """
+def remove_stopwords(text):
+    stopwords = set(['a', 'an', 'the', 'in', 'on', 'at', 'and', 'or', 'but', 'for', 'to', 'of', 'with', 'by', 'as', 'from', 'into', 'onto', 'over', 'under', 'among', 'between', 'within', 'without', 'through', 'during', 'before', 'after', 'since', 'until', 'about', 'against', 'across', 'along', 'around', 'off', 'out', 'up', 'down', 'through'])
+    cleaned_text = ' '.join(word for word in text.split() if word.lower() not in stopwords)
+    return cleaned_text
+
+""" Function to show word frequency table """
+def get_word_frequency_table_data(cleaned_text):
+    words = cleaned_text.split()
+    word_count = len(words)
+    word_frequency = {}
+
+    # Count word frequency
+    for word in words:
+        word_frequency[word] = word_frequency.get(word, 0) + 1
+
+    # Calculate percentage of appearance
+    word_percentage = {word: (count / word_count) * 100 for word, count in word_frequency.items()}
+
+    # Sort word frequency by frequency in descending order
+    sorted_word_frequency = sorted(word_frequency.items(), key=lambda x: x[1], reverse=True)
+
+    # Prepare data for QTableWidget
+    table_data = []
+    for word, frequency in sorted_word_frequency:
+        percentage = word_percentage[word]
+        table_data.append([word, frequency, f'{percentage:.2f}%'])
+
+    return table_data
+
+
+class ResultWindow(QWidget):
+    def __init__(self, word_count, cleaned_text, table_data):
+        super().__init__()
+        self.setWindowTitle("LexQuete Result")
+        self.setGeometry(200, 200, 600, 400)
+        self.setStyleSheet("background-color: #186ed3")
+
+        QFontDatabase.addApplicationFont("/Users/didou/Developer/Projects/LexiQuete/fonts/noodle.ttf")
+
+        layout = QVBoxLayout()
+
+        # Display word count
+        word_count_label = QLabel(f"Word Count: {word_count}")
+        word_count_label.setFont(QFont("BigNoodleTitling", 20)) 
+        layout.addWidget(word_count_label)
+
+        # Show word frequency table
+        table_label = QLabel("Word Frequency Table:")
+        table_label.setFont(QFont("BigNoodleTitling", 20))
+        layout.addWidget(table_label)
+
+       # Create a QTableWidget
+        table_widget = QTableWidget()
+        table_widget.setColumnCount(3)  # Three columns for Word, Frequency, Percentage
+        table_widget.setHorizontalHeaderLabels(["Word", "Frequency", "Percentage"])
+
+        # Populate the table with data
+        table_widget.setRowCount(len(table_data))
+        for i, row_data in enumerate(table_data):
+            for j, item_data in enumerate(row_data):
+                table_widget.setItem(i, j, QTableWidgetItem(str(item_data)))
+
+        # Adjust column widths to fit content
+        table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        # Add the widget to the layout
+        layout.addWidget(table_widget)
+
+        self.setLayout(layout)
+
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-
+        
         self.setWindowTitle("LexQuete")
         self.setGeometry(100, 100, 700, 500)
         self.setFixedSize(700, 500)
@@ -62,6 +153,7 @@ class MainWindow(QWidget):
 
         choose_file_button = QPushButton("Choose File")
         choose_file_button.setStyleSheet("background-color: #f99e1a; color: white; font-size: 15px; padding: 10px 15px; border-radius: 10px; border: none;")
+        choose_file_button.clicked.connect(self.choose_file)
         right_layout.addWidget(choose_file_button)
 
         
@@ -70,14 +162,27 @@ class MainWindow(QWidget):
         main_layout.addLayout(left_layout)
         main_layout.addLayout(right_layout)
         
-
         self.setLayout(main_layout)
+
+    def choose_file(self):
+        file_dialog = QFileDialog()
+        file_path, _ = file_dialog.getOpenFileName(self, 'Open File', '', "Text Files (*.txt);;Word Files (*.docx)")
+        if file_path:
+            word_count = count_words(file_path)
+            if isinstance(word_count, int):
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    original_text = file.read()
+                    cleaned_text = remove_stopwords(original_text)
+                table_data = get_word_frequency_table_data(cleaned_text)  # Get table data as a list of lists
+                self.result_window = ResultWindow(word_count, cleaned_text, table_data)
+                self.result_window.show()
+                
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
         
