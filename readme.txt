@@ -8,5 +8,5 @@ for the team :
 current used libs : 
 
 docx   (pip install python-docx)
-prettytable   (pip install prettytable)                  
+                
  
