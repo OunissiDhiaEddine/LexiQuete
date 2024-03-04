@@ -112,13 +112,13 @@ class ResultWindow(QWidget):
 
         self.setLayout(layout)
          
-
+    # Normalize the table data
     def normalize_table(self):
         lemmatizer = WordNetLemmatizer()
         self.current_table_data = [[lemmatizer.lemmatize(word.lower()), freq, perc] for word, freq, perc in self.current_table_data]
         self.populate_table(self.current_table_data)
 
-
+# Show context menu for the table widget
     def show_context_menu(self, pos):
         row = self.table_widget.rowAt(pos.y())
         col = self.table_widget.columnAt(pos.x())
@@ -187,7 +187,8 @@ class MainWindow(QWidget):
         # Set the palette and the font
         self.setPalette(palette)
         QFontDatabase.addApplicationFont("/Users/didou/Developer/Projects/LexiQuete/fonts/noodle.ttf")
-
+        
+        # Left Side
         left_layout = QVBoxLayout()
 
         logo_label = QLabel()
